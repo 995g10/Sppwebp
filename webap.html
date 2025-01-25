@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Split-Screen Camera Viewer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+    }
+    video {
+      flex: 1;
+      width: 45%;
+      max-width: 400px;
+      border: 2px solid #000;
+      border-radius: 5px;
+      background: #000;
+    }
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Split-Screen Camera Viewer</h1>
+  <div class="container">
+    <video id="video1" autoplay playsinline></video>
+    <video id="video2" autoplay playsinline></video>
+  </div>
+  <div class="controls">
+    <label for="zoom">Zoom:</label>
+    <input type="range" id="zoom" min="1" max="10" step="0.1" disabled>
+    <button id="flash">Toggle Flashlight</button>
+  </div>
+
+  <script>
+    const video1 = document.getElementById('video1');
+    const video2 = document.getElementById('video2');
+    const zoomSlider = document.getElementById('zoom');
+    const flashButton = document.getElementById('flash');
+    let mediaStream = null;
+    let imageCapture = null;
+    let isFlashOn = false;
+
+    async function startCamera() {
+      try {
+        // Request access to the camera
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+
+        // Set the same stream for both video elements
+        video1.srcObject = mediaStream;
+        video2.srcObject = mediaStream;
+
+        // Get the first video track and ImageCapture object
+        const track = mediaStream.getVideoTracks()[0];
+        imageCapture = new ImageCapture(track);
+
+        // Check for zoom support
+        const capabilities = track.getCapabilities();
+        if (capabilities.zoom) {
+          zoomSlider.min = capabilities.zoom.min;
+          zoomSlider.max = capabilities.zoom.max;
+          zoomSlider.step = capabilities.zoom.step || 0.1;
+          zoomSlider.value = capabilities.zoom.min;
+          zoomSlider.disabled = false;
+        } else {
+          zoomSlider.disabled = true;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        alert('Could not access the camera. Please check permissions or try a different device.');
+      }
+    }
+
+    zoomSlider.addEventListener('input', () => {
+      const track = mediaStream.getVideoTracks()[0];
+      const constraints = { advanced: [{ zoom: parseFloat(zoomSlider.value) }] };
+      track.applyConstraints(constraints).catch(error => console.error('Error applying zoom:', error));
+    });
+
+    flashButton.addEventListener('click', async () => {
+      try {
+        const track = mediaStream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+        if (capabilities.torch) {
+          isFlashOn = !isFlashOn;
+          const constraints = { advanced: [{ torch: isFlashOn }] };
+          track.applyConstraints(constraints).catch(error => console.error('Error toggling flash:', error));
+        } else {
+          alert('Flashlight is not supported on this device.');
+        }
+      } catch (error) {
+        console.error('Error toggling flashlight:', error);
+      }
+    });
+
+    startCamera();
+  </script>
+</body>
+</html>
